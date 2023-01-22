@@ -13,9 +13,7 @@ if __name__ == '__main__':
     }
     num_page = f'page=0'
     url = f'https://hh.ru/vacancies/data-engineer?customDomain=1&{num_page}'
-    #делаем гет-запрос с помощью заголовка
-    job_hh = requests.get(url, headers=headers)
-    print(job_hh.status_code) #статус запроса
+    job_hh = requests.get(url, headers=heade
 
     #формируем в суп текст полученного html
     job_soup = bs(job_hh.text, 'html.parser')
@@ -36,7 +34,6 @@ if __name__ == '__main__':
         #парсим каждую ссылку
         time.sleep(1)
         job = bs(result.text, 'html.parser')
-        #заносим всю информацию в переменную results
         results = job.find_all('div', {'class': 'vacancy-serp-item-body__main-info'})
         #по циклу проходим часть кода html и вытаскиваем заголовки в переменную-имя вакансии
         for result in results:
@@ -48,4 +45,3 @@ if __name__ == '__main__':
     #создаем файл csv + названия колонок
     df = DataFrame(data=job_link_list, columns=['Vacancy', 'Link'])
     df.to_csv('data.csv', index=False) #записали в файл 'data.csv'
-    print(df)
