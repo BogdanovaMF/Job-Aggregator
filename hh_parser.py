@@ -1,61 +1,102 @@
 import re
-import csv
+import os
 import time
+import shutil
+import locale
 import requests
-import pandas as pd
+from parsel import Selector
 from pandas import DataFrame
-from bs4 import BeautifulSoup as bs
+from datetime import datetime
 
-if __name__ == '__main__':
+class HHParser:
+    """Определяем атрибут"""
+    def __init__(self, find_hh):
+        self.find_hh = find_hh
+        print('Обработка веб-страницы...')
 
-    headers = {
-        'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36',
-    }
-    num_page = f'page=0'
-    url = f'https://hh.ru/vacancies/data-engineer?customDomain=1&{num_page}'
-    job_hh = requests.get(url, headers=headers)
+    def initial(self):
+        """Формируем запрос"""
+        headers = {
+            'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36',
+        }
+        num_page = f'page=0'
+        url = f'https://hh.ru/vacancies/{self.find_hh}?customDomain=1&{num_page}'
+        job_hh = requests.get(url, headers=headers)
+        init_content = job_hh.content
+        dec_content = init_content.decode('utf-8')
+        html_sel = Selector(dec_content).xpath('//html')[0]
 
-    # формируем в суп текст полученного html
-    job_soup = bs(job_hh.text, 'html.parser')
-    # ищем в супе ссылки на страницы
-    job_soup_page = job_soup.find('div', {'class': 'bloko-gap bloko-gap_top'})
-    pages = job_soup_page.find_all('a')
-    pages_count = []  # список номеров страниц
-    for i in job_soup_page.text:
-        if i.isdigit():  # находим номера страниц
-            pages_count.append(int(i))
-    count = pages_count[-1]  # количество страниц (последняя страница)
+        """Получаем количество найденных вакансий"""
+        search_quantity = html_sel.xpath("//div[contains(@class, 'main-content')]")
+        quantity = search_quantity.xpath("//span[contains(@data-qa, 'vacancies-total-found')]//text()").get()
+        print(f'Всего {quantity[2:]}')
 
-    # начинам парсить сами страницы с вакансиями поочереди
-    job_link_list = []  # список с кортежами (вакансия, ссылка, компания)
-    for i in range(count):
-        counter = f'page={i}'  # переменная для перехода по страницам (для изменения url)
-        result = requests.get(f'{url}&{counter}', headers=headers)  # переменная для запроса страницы
-        # парсим каждую ссылку
-        time.sleep(1)
-        job = bs(result.text, 'html.parser')
-        results = job.find_all('div', {'class': 'vacancy-serp-item-body__main-info'})
-        # по циклу проходим часть кода html и вытаскиваем заголовки в переменную-имя вакансии
-        for result in results:
-            name_job = result.find('a').text
-            link = result.find('a')['href']
-            company = result.find('div', {'class': "vacancy-serp-item__meta-info-company"}).find('a').text
-            link_c = result.find('div', {'class': "vacancy-serp-item__meta-info-company"}).find('a')[
-                'href']  # нашли ссылку на компанию
-            link_company = f'hh.ru{link_c}'  # слепили в урл
+        """Ищем количество страниц"""
+        page_nav_buttons = html_sel.xpath('//div[contains(@class, "pager")]/span[contains(@class, "pager-item-not-in-short-range")]//span//text()').getall()#print(f'Последние кнопки навигации: {_page_nav_buttons}')
+        total_pages = int(page_nav_buttons[-1])
+        print(f'Обработано {total_pages} страниц')
 
-            # проходимся по самой ссылке на вакансию и вытаскиваем из нее информацию
-            link_vacancy = requests.get(link, headers=headers)
-            link_vacancy_soup = bs(link_vacancy.text, 'html.parser')
-            link_result = link_vacancy_soup.find_all('div', {'class': 'vacancy-description'})
-            date = link_vacancy_soup.find('p', {'class': "vacancy-creation-time-redesigned"}).text
-            for info in link_result:
-                text_vacancy = info.find('div', {'class':"vacancy-section"}).find('div', {'data-qa': "vacancy-description"}).text
+        """Получаем всю нужную информацию"""
+        information_job = []
+        for i in range(total_pages):
+            counter = f'page={i}'  # переменная для перехода по страницам (для изменения url)
+            job = requests.get(f'{url}&{counter}', headers=headers)  # переменная для запроса
+            job_all = job.content.decode('utf-8')  # декодим
+            html_sel = Selector(job_all).xpath('/html')  # превращаем в объект селектора
+            links_sel = html_sel.xpath("//div[contains(@class, 'vacancy-serp-content')]")  # выделили общий див
 
-    # все в кортеж, а затем в список включаем
-    job_link = (date, name_job, link, company, link_company, text_vacancy)
-    job_link_list.append(job_link)
+            for l_sell in links_sel:
+                link = l_sell.xpath("//a[contains(@class,'serp-item__title')]/@href").getall() #получили ссылки с одной страницы, обходим их
+                for l in link:
+                    response = requests.get(l, headers=headers)
+                    html_info_sel = Selector(response.content.decode('utf-8')).xpath('/html')[0]
 
-    # создаем файл data.csv + названия колонок
-    df = DataFrame(data=job_link_list, columns=['Date','Vacancy', 'Link', 'Company', 'Link Company', 'Text Vacancy'])
-    df.to_csv('data.csv', index=False)
+                    # текст вакансии
+                    info_v = html_info_sel.xpath("//div[contains(@class, 'vacancy-section')]").xpath(
+                    "//div[contains(@data-qa, 'vacancy-description')]//text()").getall()
+                    info_vac = ''.join(info_v) #объединили в строку, убрали лишние сиволы
+
+                    #название вакансии
+                    name = str(html_info_sel.xpath("//h1[contains(@data-qa,'vacancy-title')]/text()").get())
+
+                    #имя компании
+                    company = html_info_sel.xpath("//a[contains(@data-qa,'vacancy-company-name')]//text()").get()
+
+                    #вытаскиваем дату и преобразовываем в нужный формат
+                    try:
+                        date = html_info_sel.xpath("//p[contains(@class, 'vacancy-creation-time-redesigned')]//text()").getall()[1]
+                        date = re.sub(r'[^\d,^\w.]', ' ', date)
+                        locale.setlocale(locale.LC_ALL, 'ru_RU.UTF-8')
+                        dateline = datetime.strptime(date, "%d %B %Y")
+                    except IndexError:
+                        dateline = '-'
+
+                    #получаем навыки
+                    skill = html_info_sel.xpath("//div[contains(@class, 'bloko-tag-list')]//text()").getall()
+                    skill = ','.join(skill)
+                    skill = re.sub(r'[^\w.]', ' ', skill)
+
+                    # получаем ЗП
+                    salary = html_info_sel.xpath(
+                        "//div[contains(@data-qa, 'vacancy-salary')]//text()").getall()
+                    salary = ' '.join(salary).split()
+                    salary = ' '.join(salary)
+
+                    information_job.append((dateline, name, company, l, salary, skill, info_vac))
+
+
+        df = DataFrame(data=information_job, columns=['Pub_date', 'Vacancy', 'Company', 'Link', 'Salary', 'Skills', 'Text vacancy'])
+        file = df.to_csv(f'{new} {datetime.now().date()}.csv', index=False)
+
+        # создаем папку и переносим туда файл scv
+        os.mkdir('Result')
+        shutil.move(file, 'Result')
+
+new = input('Введите имя вакансии для поиска').lower().replace(' ','-')
+print(f'Поехали, ищем вакансию {new.upper()}')
+lets_find = HHParser(new)
+lets_find.initial()
+
+
+
+
