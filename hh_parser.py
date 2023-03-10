@@ -165,7 +165,7 @@ if __name__ == '__main__':
                              'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'}
     num_page = f'page=0'
     url = f'https://hh.ru/vacancies/{parser_name_jobs()}?customDomain=1&{num_page}'
-
+args = parse_args()
     html_content = get_selector_html(url)  # get the selector object
     quantity_vac(html_content)  # displaying the number of vacancies found
     count_pages_ = count_pages(html_content)  # number of all pages found
