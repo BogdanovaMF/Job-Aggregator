@@ -27,7 +27,7 @@ def get_links(url: str) -> List[str]:
     print(f'урл {url}')
     response = requests.get(url, headers=headers)
     job_content = response.content.decode('utf-8')
-    links_sel = Selector(job_content).xpath('/html').xpath("//div[contains(@class, 'vacancy-serp-content')]")
+    links_sel = Selector(job_content).xpath('/html').xpath("//div[contains(@class, 'HH-MainContent HH-Supernova-MainContent')]")
     for l_sell in links_sel:
         links_page = l_sell.xpath(
             "//a[contains(@class,'serp-item__title')]/@href").getall()
@@ -125,16 +125,16 @@ if __name__ == '__main__':
     links = []
     for i in range(total_pages):
         links += get_links(url.format(specialization=args["name"], num_page=f'page={i}'))
-        time.sleep(2)
+        time.sleep(0.7)
 
     # job listing
     data_vacancies = []
     try:
         for link in links:
             data_vacancies.append(get_vacancy_data(link))
-            time.sleep(2)
+            time.sleep(0.7)
     except ConnectionError:
-        time.sleep(5)
+        time.sleep(2)
 
     # csv file generation
     save_data(data_vacancies)
