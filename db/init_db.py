@@ -1,4 +1,4 @@
-from utilities import *
+from utilities import get_pg_connection
 
 if __name__ == '__main__':
     query = """ 
@@ -8,7 +8,7 @@ if __name__ == '__main__':
             update_ts TIMESTAMP WITH TIME ZONE,
             csv_date TIMESTAMP WITH TIME ZONE,
             source_type CHARACTER VARYING (20),
-            vacancy CHARACTER VARYING (100),
+            vacancy CHARACTER VARYING (150),
             experience CHARACTER VARYING (50),
             company CHARACTER VARYING (128),
             link CHARACTER VARYING (100),
@@ -18,5 +18,7 @@ if __name__ == '__main__':
         ); 
     """
 
+    conn = get_pg_connection()
+    cursor = conn.cursor()
     cursor.execute(query)
     conn.commit()
