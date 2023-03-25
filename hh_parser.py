@@ -1,11 +1,10 @@
 import re
 import os
-import csv
 import time
 import locale
+import logging
 import argparse
 import requests
-from pathlib import Path
 from parsel import Selector
 from pandas import DataFrame
 from datetime import datetime
@@ -20,13 +19,13 @@ def parse_args():
     args = parser.parse_args()
     return vars(args)
 
-def get_links(number_page: int) -> List[str]:
+def get_links(url: str) -> List[str]:
     """Extract job links from given page
-    :param number_page: number of page for request
+    :param url: _______
     :return: a list with links to vacancies from one page
     """
-
-    response = requests.get(f'{url}&page={number_page}', headers=headers)
+    print(f'урл {url}')
+    response = requests.get(url, headers=headers)
     job_content = response.content.decode('utf-8')
     links_sel = Selector(job_content).xpath('/html').xpath("//div[contains(@class, 'vacancy-serp-content')]")
     for l_sell in links_sel:
@@ -81,7 +80,6 @@ def get_vacancy_data(link: str) -> Tuple[str]:
     salary = ' '.join(salary)
 
     experience = html_sel.xpath("//span[contains(@data-qa, 'vacancy-experience')]//text()").get()
-
     print(f'Получаем инфомарцию по вакансии {vacancy_name}, компания "{company.strip()}"')
     return pub_date, vacancy_name, experience, company, link, salary, skill, text_vacancy
 
@@ -91,22 +89,22 @@ def save_data(data_vacancies: List[Tuple]):
     :param data_vacancies: list with information on vacancies
     """
 
-    dir_name = 'result'
-    if not os.path.exists('result'):
+    dir_name = 'data'
+    if not os.path.exists(dir_name):
         os.mkdir(dir_name)
     df = DataFrame(data=data_vacancies,
                    columns=['pub_date', 'vacancy', 'experience', 'company', 'link', 'salary', 'skills', 'description'])
-    df.to_csv(f'{dir_name}/{args["name"]}_{datetime.now()}.csv', index=False)
+    df.to_csv(f'{dir_name}/{args["name"].replace("-", "_")}_{datetime.now()}.csv', index=False)
 
 
 if __name__ == '__main__':
     headers = {'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
                              'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'}
-    num_page = f'page=0'
-    args = parse_args()
-    url = f'https://hh.ru/vacancies/{args["name"]}?customDomain=1&{num_page}'
 
-    job_hh = requests.get(url, headers=headers)
+    args = parse_args()
+    url = 'https://hh.ru/vacancies/{specialization}?customDomain=1&{num_page}'
+
+    job_hh = requests.get(url.format(specialization=args["name"], num_page='page=0'), headers=headers)
 
     init_content = job_hh.content.decode('utf-8')
     html_sel = Selector(init_content).xpath('//html')[0]
@@ -126,13 +124,15 @@ if __name__ == '__main__':
     # list links for all vacancies from all pages
     links = []
     for i in range(total_pages):
-        links += get_links(i)
+        links += get_links(url.format(specialization=args["name"], num_page=f'page={i}'))
+        time.sleep(2)
 
     # job listing
     data_vacancies = []
     try:
         for link in links:
             data_vacancies.append(get_vacancy_data(link))
+            time.sleep(2)
     except ConnectionError:
         time.sleep(5)
 
