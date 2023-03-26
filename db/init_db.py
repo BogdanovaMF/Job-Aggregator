@@ -6,7 +6,7 @@ if __name__ == '__main__':
             id SERIAL PRIMARY KEY,
             pub_date DATE,
             update_ts TIMESTAMP WITH TIME ZONE,
-            source_upload_dt TIMESTAMP WITH TIME ZONE,
+            source_upload_dt DATE,
             source_type CHARACTER VARYING (20),
             vacancy CHARACTER VARYING (150),
             experience CHARACTER VARYING (50),
