@@ -6,8 +6,8 @@ if __name__ == '__main__':
             id SERIAL PRIMARY KEY,
             pub_date DATE,
             update_ts TIMESTAMP WITH TIME ZONE,
-            csv_date TIMESTAMP WITH TIME ZONE,
-            source_upload_ts CHARACTER VARYING (20),
+            source_upload_dt TIMESTAMP WITH TIME ZONE,
+            source_type CHARACTER VARYING (20),
             vacancy CHARACTER VARYING (150),
             experience CHARACTER VARYING (50),
             company CHARACTER VARYING (128),
@@ -20,9 +20,9 @@ if __name__ == '__main__':
             IS 'Дата публикации вакансии';
         COMMENT ON COLUMN vacancies.update_ts 
             IS 'Дата вставки данных в таблицу vacancies';
-        COMMENT ON COLUMN vacancies.csv_date 
+        COMMENT ON COLUMN vacancies.source_upload_dt 
             IS 'Дата создания csv-файла, из которого выгружается информация';
-        COMMENT ON COLUMN vacancies.source_upload_ts 
+        COMMENT ON COLUMN vacancies.source_type 
             IS 'Источник полученной инфомарции о вакансиях ';
         COMMENT ON COLUMN vacancies.vacancy 
             IS 'Наименование вакансии';
