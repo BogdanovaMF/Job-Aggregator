@@ -21,10 +21,10 @@ def parse_args():
 
 def get_links(url: str) -> List[str]:
     """Extract job links from given page
-    :param url: _______
+    :param url: link to first page
     :return: a list with links to vacancies from one page
     """
-    print(f'урл {url}')
+
     response = requests.get(url, headers=headers)
     job_content = response.content.decode('utf-8')
     links_sel = Selector(job_content).xpath('/html').xpath("//div[contains(@class, 'HH-MainContent HH-Supernova-MainContent')]")
@@ -90,11 +90,12 @@ def save_data(data_vacancies: List[Tuple]):
     """
 
     dir_name = 'data'
-    if not os.path.exists(dir_name):
-        os.mkdir(dir_name)
+    source_type = 'hh'
+    if not os.path.exists(f'{dir_name}/{source_type}'):
+        os.makedirs(f'{dir_name}/{source_type}')
     df = DataFrame(data=data_vacancies,
                    columns=['pub_date', 'vacancy', 'experience', 'company', 'link', 'salary', 'skills', 'description'])
-    df.to_csv(f'{dir_name}/{args["name"].replace("-", "_")}_{datetime.now()}.csv', index=False)
+    df.to_csv(f'{dir_name}/{source_type}/{args["name"].replace("-", "_")}_{datetime.now().date()}.csv', index=False)
 
 
 if __name__ == '__main__':
