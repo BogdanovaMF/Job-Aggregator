@@ -1,14 +1,16 @@
 import re
 import os
+import csv
 import time
 import locale
-import logging
 import argparse
 import requests
+from pathlib import Path
 from parsel import Selector
-from pandas import DataFrame
 from datetime import datetime
 from typing import List, Tuple
+
+OUTPUT_FILEPATH_TEMPLATE = 'data/{source_type}/{specialization}/{source_upload_dt}'
 
 
 def parse_args():
@@ -19,15 +21,17 @@ def parse_args():
     args = parser.parse_args()
     return vars(args)
 
+
 def get_links(url: str) -> List[str]:
     """Extract job links from given page
-    :param url: _______
+    :param url: link to first page
     :return: a list with links to vacancies from one page
     """
-    print(f'урл {url}')
+
     response = requests.get(url, headers=headers)
     job_content = response.content.decode('utf-8')
-    links_sel = Selector(job_content).xpath('/html').xpath("//div[contains(@class, 'HH-MainContent HH-Supernova-MainContent')]")
+    links_sel = Selector(job_content).xpath('/html').xpath(
+        "//div[contains(@class, 'HH-MainContent HH-Supernova-MainContent')]")
     for l_sell in links_sel:
         links_page = l_sell.xpath(
             "//a[contains(@class,'serp-item__title')]/@href").getall()
@@ -56,7 +60,7 @@ def get_vacancy_data(link: str) -> Tuple[str]:
     # find the date and convert to the desired format
     try:
         date = html_sel.xpath("//p[contains(@class, 'vacancy-creation-time-redesigned')]"
-                                   "//text()").getall()[1]
+                              "//text()").getall()[1]
         date = re.sub(r'[^\d,^\w.]', ' ', date)
         locale.setlocale(locale.LC_ALL, 'ru_RU.UTF-8')
         pub_date = datetime.strptime(date, "%d %B %Y")
@@ -84,17 +88,20 @@ def get_vacancy_data(link: str) -> Tuple[str]:
     return pub_date, vacancy_name, experience, company, link, salary, skill, text_vacancy
 
 
-def save_data(data_vacancies: List[Tuple]):
-    """We form the received information into the scv file. The file is saved in the folder "result"
-    :param data_vacancies: list with information on vacancies
+def save_data(data: List[Tuple], output_filepath: str):
+    """We form the received information into the scv file."
+    :param data: list with information on vacancies
+    :param output_filepath: path to save the file
     """
 
-    dir_name = 'data'
-    if not os.path.exists(dir_name):
-        os.mkdir(dir_name)
-    df = DataFrame(data=data_vacancies,
-                   columns=['pub_date', 'vacancy', 'experience', 'company', 'link', 'salary', 'skills', 'description'])
-    df.to_csv(f'{dir_name}/{args["name"].replace("-", "_")}_{datetime.now()}.csv', index=False)
+    if not os.path.exists(output_filepath):
+        os.makedirs(output_filepath)
+
+    file = str(Path(output_filepath, 'vacancies.csv'))
+
+    with open(file, 'wt') as f:
+        csv_out = csv.writer(f)
+        csv_out.writerows(data)
 
 
 if __name__ == '__main__':
@@ -137,4 +144,9 @@ if __name__ == '__main__':
         time.sleep(2)
 
     # csv file generation
-    save_data(data_vacancies)
+    save_data(
+        data=data_vacancies,
+        output_filepath=OUTPUT_FILEPATH_TEMPLATE.format(source_type='hh',
+                                                        specialization=args["name"].replace('-', '_'),
+                                                        source_upload_dt=datetime.now().date())
+    )
