@@ -1,15 +1,16 @@
 import re
 import os
+import csv
 import time
 import locale
-import logging
 import argparse
 import requests
+from pathlib import Path
 from parsel import Selector
-from pandas import DataFrame
 from datetime import datetime
 from typing import List, Tuple
 
+DIR_NAME = 'data'
 
 def parse_args():
     """Getting  data from the user from the command line for searching"""
@@ -21,10 +22,10 @@ def parse_args():
 
 def get_links(url: str) -> List[str]:
     """Extract job links from given page
-    :param url: _______
+    :param url: link to first page
     :return: a list with links to vacancies from one page
     """
-    print(f'урл {url}')
+
     response = requests.get(url, headers=headers)
     job_content = response.content.decode('utf-8')
     links_sel = Selector(job_content).xpath('/html').xpath("//div[contains(@class, 'HH-MainContent HH-Supernova-MainContent')]")
@@ -89,12 +90,19 @@ def save_data(data_vacancies: List[Tuple]):
     :param data_vacancies: list with information on vacancies
     """
 
-    dir_name = 'data'
-    if not os.path.exists(dir_name):
-        os.mkdir(dir_name)
-    df = DataFrame(data=data_vacancies,
-                   columns=['pub_date', 'vacancy', 'experience', 'company', 'link', 'salary', 'skills', 'description'])
-    df.to_csv(f'{dir_name}/{args["name"].replace("-", "_")}_{datetime.now()}.csv', index=False)
+    source_type = 'hh'
+    specialization = args["name"].replace("-", "_")
+    source_upload_dt = str(datetime.now().date())
+    path_dir = str(Path(DIR_NAME, source_type, specialization, source_upload_dt))
+
+    if not os.path.exists(path_dir):
+        os.makedirs(path_dir)
+
+    name_file = str(Path(path_dir, 'vacancies.csv'))
+
+    with open(name_file, 'wt') as f:
+        csv_out = csv.writer(f)
+        csv_out.writerows(data_vacancies)
 
 
 if __name__ == '__main__':
