@@ -13,8 +13,9 @@ if __name__ == '__main__':
             company CHARACTER VARYING (128),
             link CHARACTER VARYING (100),
             salary CHARACTER VARYING (50),
-            skills CHARACTER VARYING (300),
-            description VARCHAR
+            skills CHARACTER VARYING (500),
+            description VARCHAR,
+            specialization CHARACTER VARYING (50)
         );
         COMMENT ON COLUMN vacancies.pub_date 
             IS 'Дата публикации вакансии';
@@ -38,6 +39,8 @@ if __name__ == '__main__':
             IS 'Ключевые навыки, требуемые в вакансии'; 
         COMMENT ON COLUMN vacancies.description 
             IS 'Описание вакансии';
+        COMMENT ON COLUMN vacancies.specialization 
+            IS 'Специализация, по которой производится поиск вакансий'; 
     """
 
     conn = get_pg_connection()
