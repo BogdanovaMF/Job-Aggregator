@@ -104,7 +104,7 @@ if __name__ == '__main__':
     source_upload_dt = datetime.now().date()
     source_type = 'hh'
     update_ts = datetime.now()
-    specialization = 'data-engineer'
+    specialization = 'data_engineer'
 
     delete_condition = f"""
         WHERE  specialization='{specialization}'
@@ -116,7 +116,7 @@ if __name__ == '__main__':
         source_type=source_type,
         specialization=specialization,
         source_upload_dt=source_upload_dt)
-    file = f'etl/{OUTPUT_FILEPATH_TEMPLATE}/vacancies.csv'
+    file = f'{OUTPUT_FILEPATH_TEMPLATE}/vacancies.csv'
     pathfile = str(Path(Path.cwd(), file))
 
     with open(pathfile) as f:
