@@ -103,7 +103,9 @@ class HHClient:
 
         vacancy_name = str(html_sel.xpath("//h1[contains(@data-qa,'vacancy-title')]/text()").get())
 
-        company = html_sel.xpath("//a[contains(@data-qa,'vacancy-company-name')]//text()").get()
+        company = html_sel.xpath("//a[contains(@data-qa,'vacancy-company-name')]//text()").getall()
+        company = ' '.join(company)
+        company = re.sub(r'[^\d,^\w.]', ' ', company)[0:(len(company) // 2 + 1)]
 
         skill = html_sel.xpath("//div[contains(@class, 'bloko-tag-list')]//text()").getall()
         skill = ','.join([i for i in skill])
@@ -119,7 +121,7 @@ class HHClient:
                                   "//text()").getall()[1]
             date = re.sub(r'[^\d,^\w.]', ' ', date)
             locale.setlocale(locale.LC_ALL, 'ru_RU.UTF-8')
-            pub_date = datetime.strptime(date, "%d %B %Y").date()
+            pub_date = datetime.strptime(date, "%d %B %Y")
 
         except:
             logger.exception(f'Date processing error, {link}')
