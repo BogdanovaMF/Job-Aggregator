@@ -1,5 +1,6 @@
 import argparse
-from clients.hh import HHClient
+from etl.clients.hh import HHClient
+
 
 def parse_args():
     """Getting  data from the user from the command line for searching"""
@@ -11,6 +12,5 @@ def parse_args():
 
 
 if __name__ == '__main__':
-
     args = parse_args()
     HHClient.parse_and_save(args["specialization"])

@@ -1,6 +1,3 @@
-import sys
-sys.path.append('..')
-
 import re
 import time
 import locale
@@ -9,8 +6,8 @@ from datetime import date
 from parsel import Selector
 from datetime import datetime
 from typing import List, Tuple
-from etl.utils import get_logger, save_data
-from etl.config import OUTPUT_FILEPATH_TEMPLATE
+from ..utils import get_logger, save_data
+from ..config import OUTPUT_FILEPATH_TEMPLATE
 
 headers = {'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
                          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'}
@@ -62,7 +59,7 @@ class HHClient:
                 time.sleep(0.7)
 
         except ConnectionError:
-            time.sleep(2)
+            time.sleep(10)
 
         save_data(
             data=data,
@@ -135,5 +132,5 @@ class HHClient:
                 logger.exception(f'Date processing error, {link}')
                 pub_date = None
 
-        logger.info(f'Receive information about the vacancy "{vacancy_name}", company "{company.strip()}"')
+        logger.info(f'Receive information about the vacancy "{vacancy_name}", company "{company}"')
         return pub_date, vacancy_name, experience, company, link, salary, skill, text_vacancy
