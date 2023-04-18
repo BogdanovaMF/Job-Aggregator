@@ -1,7 +1,6 @@
 import os
 import sys
 import logging
-import argparse
 import psycopg2
 
 
@@ -29,15 +28,3 @@ def get_logger():
     fh.setFormatter(logging.Formatter("%(levelname)s  %(asctime)s: %(message)s"))
     logger.addHandler(fh)
     return logger
-
-
-def parse_args():
-    """Getting  data from the user from the command line for loader PG"""
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--specialization', required=True, choices=['data_engineer'])
-    parser.add_argument('--source_type', required=True, choices=['hh'])
-    parser.add_argument('--source_upload_dt', required=True)
-    parser.add_argument('--target_table', required=True, choices=['vacancies'])
-    args = parser.parse_args()
-    return vars(args)

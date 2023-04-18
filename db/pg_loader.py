@@ -1,31 +1,34 @@
 import csv
 import time
+import argparse
 from datetime import datetime
 from typing import Tuple, List
-from abc import abstractmethod, ABC
 
-from utilities import parse_args
 from utilities import get_logger
 from utilities import get_pg_connection
 
 OUTPUT_FILEPATH_TEMPLATE = 'data/{source_type}/{specialization}/{source_upload_dt}'
 
 
-class Loader(ABC):
-    def __init__(self, conn):
-        self.conn = conn
-        self.cursor = self.conn.cursor()
+def parse_args():
+    """Getting  data from the user from the command line for loader PG"""
 
-    @abstractmethod
-    def create_temp_table(self, target_table: str, data: List[Tuple]):
-        self.cursor.execute(f"SELECT * FROM {target_table} LIMIT 0")  # select columns name from target_table
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--specialization', required=True, choices=['data_engineer'])
+    parser.add_argument('--source_type', required=True, choices=['hh'])
+    parser.add_argument('--source_upload_dt', required=True)
+    parser.add_argument('--target_table', required=True, choices=['vacancies'])
+    args = parser.parse_args()
+    return vars(args)
 
 
-class PostgresLoader(Loader):
+class PostgresLoader():
     """Class for writing data to PostgreSQL"""
 
-    def __init__(self, conn):
-        super().__init__(conn)
+    def __init__(self, conn, logger) -> None:
+        self.conn = conn if conn else get_pg_connection()
+        self.cursor = self.conn.cursor()
+        self.logger = logger if logger else get_logger()
 
     def create_temp_table(self, target_table: str, data: List[Tuple]):
         """Creating and insert data into a temporary table
@@ -33,48 +36,45 @@ class PostgresLoader(Loader):
         :param data: data to write to the table
         :return: temporary table name
         """
-        super().create_temp_table(target_table=target_table, data=data)
-        col_names = [col.name for col in self.cursor.description if col.name != 'id']  # identified columns without id
-        current_tt = int(time.time())
-        logger.info(f'Create temporary table {target_table}_{current_tt}')
 
-        query_create = f"""
-            CREATE TEMP TABLE {target_table}_{current_tt} 
-            AS SELECT {', '.join(col_names)} 
-            FROM {target_table} 
-            LIMIT 0;
-        """
+        temp_table = f'{target_table}_{int(time.time())}'
+        self.cursor.execute(f"SELECT * FROM {target_table} LIMIT 0")  # select columns name from target_table
+        col_names = [col.name for col in self.cursor.description if col.name != 'id']  # identified columns without id
+
+        query_create = f"""CREATE TEMP TABLE {temp_table} AS TABLE {target_table} WITH NO DATA"""
+        self.logger.info(f'Create temporary table {temp_table}')
         try:
             self.cursor.execute(query_create)
-            logger.info(f'Temporary table {target_table}_{current_tt} completed successfully')
+            self.conn.commit()
+            self.logger.info(f'Temporary table {temp_table} completed successfully')
         except:
-            logger.error('Error creating temporary table')
+            self.logger.error('Error creating temporary table')
+            self.conn.rollback()
 
-        item_placeholders = ', '.join(['%s'] * len(col_names))
-
-        logger.info(f'Inserting values into a temporary table {target_table}_{current_tt}')
+        self.logger.info(f'Inserting values into a temporary table {temp_table}')
         try:
             guery_insert_temp_table = f"""
-                INSERT INTO {target_table}_{current_tt} 
+                INSERT INTO {temp_table} 
                     ({', '.join(col_names)})
-                VALUES ({item_placeholders});
+                VALUES ({', '.join(['%s'] * len(col_names))});
             """
             self.cursor.executemany(guery_insert_temp_table, data)
             self.conn.commit()
-            logger.info(f'Inserting values into a temporary table {target_table}_{current_tt} completed successfully')
+            self.logger.info(f'Inserting values into a temporary table {temp_table} completed successfully')
         except:
-            logger.error('Error. No data entered into temporary table')
+            self.logger.error('Error. No data entered into temporary table')
+            self.conn.rollback()
 
-        return f'{target_table}_{current_tt}', col_names
+        return temp_table, col_names
 
-    def insert_and_update(self, target_table: str, temp_table: str, col_names: List[str]):
+    def insert_and_update(self, target_table: str, data: List[Tuple]) -> None:
         """Update and insert value into target data table from temporary table
         :param target_table: target table name
-        :param temp_table: temporary table name
-        :param col_names: column names to fill
+        :param data: data to write to the table
         """
 
-        logger.info(f'Update and insert value into target table {target_table} from temporary table {temp_table}')
+        temp_table, col_names = self.create_temp_table(target_table, data)
+        self.logger.info(f'Update and insert value into target table {target_table} from temporary table {temp_table}')
         guery_insert_target_table = f"""
             INSERT INTO {target_table}
                 ({', '.join(col_names)})
@@ -83,60 +83,53 @@ class PostgresLoader(Loader):
             ON CONFLICT
             DO NOTHING;
         """
-        self.cursor.execute(guery_insert_target_table)
-        self.conn.commit()
-        logger.info(
-            f'Update and insert table {target_table} data from temporary table {temp_table} completed successfully')
+        try:
+            self.cursor.execute(guery_insert_target_table)
+            self.conn.commit()
+            self.logger.info(
+                f'Update and insert table {target_table} data from temporary table {temp_table} completed successfully')
+        except:
+            self.logger.info('Error update and insert')
+            self.conn.rollback()
 
-    def insert_from_temp_into_target(self, target_table: str, temp_table: str, col_names: List[str], delete_condition=None):
+    def insert_from_temp_into_target(self, target_table: str, data: List[Tuple], delete_condition=None) -> None:
         """Deleting data and adding new data
         :param target_table: target table name
-        :param temp_table: temporary table name
-        :param col_names: column names to fill
+        :param data: data to write to the table
         :param delete_condition: condition for deleting data
         """
+        temp_table, col_names = self.create_temp_table(target_table, data)
+        queries = []
+        if delete_condition:
+            q_delete = f"""DELETE FROM {target_table} {delete_condition};"""
+            queries.append(q_delete)
 
-        q1 = f"""
-            DELETE FROM {target_table}
-            {delete_condition};   
-        """
-        q2 = f"""
+        q_insert = f"""
             INSERT INTO {target_table} (
                 {', '.join(col_names)}
             )
             SELECT {', '.join(col_names)}
             FROM {temp_table};
         """
-        queries = q1 + q2
+        queries.append(q_insert)
+
         try:
-            if delete_condition is not None:
-                self.cursor.execute(queries)
-                self.conn.commit()
-                logger.info('Both requests completed. Removed old data and added new ones')
-            else:
-                self.cursor.execute(q2)
-                self.conn.commit()
-                logger.info('Only one insert request completed')
+            for query in queries:
+                self.cursor.execute(query)
+            self.conn.commit()
+            self.logger.info('Data entered in the target table')
         except:
-            logger.error('Query Execution Error')
+            self.logger.error('Query Execution Error')
             self.conn.rollback()
 
     def __del__(self):
-        logger.info('Closing the connection')
+        self.logger.info('Closing the connection')
         self.conn.close()
 
 
 if __name__ == '__main__':
 
     args = parse_args()
-    logger = get_logger()
-    conn = get_pg_connection()
-
-    delete_condition = f"""
-        WHERE  specialization='{args['specialization']}'
-        AND source_type='{args['source_type']}' 
-        AND source_upload_dt='{args['source_upload_dt']}'
-    """
 
     filepath = OUTPUT_FILEPATH_TEMPLATE.format(
         source_type=args['source_type'],
@@ -155,7 +148,14 @@ if __name__ == '__main__':
                 row[7], args['specialization']
             data_from_csv.append(line)
 
-    pg_loader = PostgresLoader(conn=conn)
-    temp_table, col_names = pg_loader.create_temp_table(args['target_table'], data_from_csv)
-    pg_loader.insert_from_temp_into_target(args['target_table'], temp_table, col_names, delete_condition)
+    delete_condition = f"""
+        WHERE  specialization='{args['specialization']}'
+        AND source_type='{args['source_type']}' 
+        AND source_upload_dt='{args['source_upload_dt']}'
+    """
+
+    pg_loader = PostgresLoader(conn=get_pg_connection(), logger=get_logger())
+    pg_loader.insert_from_temp_into_target(target_table=args['target_table'],
+                                           data=data_from_csv,
+                                           delete_condition=delete_condition)
     del pg_loader
