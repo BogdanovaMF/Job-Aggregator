@@ -88,7 +88,7 @@ class PostgresLoader(Loader):
         logger.info(
             f'Update and insert table {target_table} data from temporary table {temp_table} completed successfully')
 
-    def insert_from_temp_into_target(self, target_table: str, temp_table: str, col_names, delete_condition=None):
+    def insert_from_temp_into_target(self, target_table: str, temp_table: str, col_names: List[str], delete_condition=None):
         """Deleting data and adding new data
         :param target_table: target table name
         :param temp_table: temporary table name
