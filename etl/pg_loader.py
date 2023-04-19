@@ -4,8 +4,8 @@ import argparse
 from datetime import datetime
 from typing import Tuple, List
 
-from utilities import get_logger
-from utilities import get_pg_connection
+from utils import get_logger
+from utils import get_pg_connection
 
 OUTPUT_FILEPATH_TEMPLATE = 'data/{source_type}/{specialization}/{source_upload_dt}'
 

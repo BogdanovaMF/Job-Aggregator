@@ -1,4 +1,4 @@
-from utilities import get_pg_connection
+from etl.utils import get_pg_connection
 
 if __name__ == '__main__':
     query = """ 

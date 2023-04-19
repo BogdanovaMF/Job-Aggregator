@@ -2,8 +2,20 @@ import os
 import csv
 import sys
 import logging
+import psycopg2
 from pathlib import Path
 from typing import List, Tuple
+
+
+def get_pg_connection():
+    conn = psycopg2.connect(
+        dbname=os.environ['DB_NAME'],
+        user=os.environ['DB_USER'],
+        password=os.environ['DB_PASSWORD'],
+        host=os.environ['DB_HOST'],
+        port=os.environ['DB_PORT']
+    )
+    return conn
 
 
 def get_logger():
@@ -15,7 +27,7 @@ def get_logger():
     handler.setFormatter(logging.Formatter("%(levelname)s  %(asctime)s: %(message)s"))
     logger.addHandler(handler)
 
-    fh = logging.FileHandler('../file.log')
+    fh = logging.FileHandler('./file.log')
     fh.setFormatter(logging.Formatter("%(levelname)s  %(asctime)s: %(message)s"))
     logger.addHandler(fh)
     return logger
