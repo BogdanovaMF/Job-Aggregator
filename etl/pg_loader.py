@@ -1,6 +1,7 @@
 import csv
 import time
 import argparse
+import psycopg2.errors
 from datetime import datetime
 from typing import Tuple, List, Optional
 
@@ -30,46 +31,49 @@ class PostgresLoader:
         self.cursor = self.conn.cursor()
         self.logger = logger if logger else get_logger()
 
-    def insert_data_into_table(self, table_name: str, data: List[Tuple]) -> None:
-        """Insert data into a table
+    def insert_data_into_table(self, table_name: str, data: List[Tuple],
+                               create_like_table: Optional[str] = None) -> str:
+        """Insert data into a table. Create temp table
         :param table_name: tables name for insert values
         :param data: data to write to the table
+        :param create_like_table: the name of the table whose structure is to be copied
+        :return: temp table name
         """
+
+        temp_table = f'{table_name}_{int(time.time())}'
+        query_create = f"""CREATE TEMP TABLE {temp_table} AS TABLE {create_like_table} WITH NO DATA"""
+        try:
+            self.cursor.execute(query_create)
+            self.conn.commit()
+            self.logger.info(f'Temporary table {temp_table} completed successfully')
+        except psycopg2.errors.UndefinedTable:
+            self.logger.error(f'Error creating temporary table {temp_table}.Error {psycopg2.errors.UndefinedTable}')
+            self.conn.rollback()
 
         self.cursor.execute(f"SELECT * FROM {table_name} LIMIT 0")  # select columns name from table
         col_names = [col.name for col in self.cursor.description if col.name != 'id']  # identified columns without id
         try:
             guery_insert_data = f"""
-                INSERT INTO {table_name} 
+                INSERT INTO {temp_table} 
                     ({', '.join(col_names)})
                 VALUES ({', '.join(['%s'] * len(col_names))});
             """
             self.cursor.executemany(guery_insert_data, data)
             self.conn.commit()
-            self.logger.info(f'Inserting values into a table {table_name} completed successfully')
-        except:
-            self.logger.error(f'Error. No data entered into table {table_name}')
+            self.logger.info(f'Inserting values into a table {temp_table} completed successfully')
+        except psycopg2.errors.UndefinedTable:
+            self.logger.error(f'Error {psycopg2.errors.UndefinedTable}. No data entered into table {temp_table}')
             self.conn.rollback()
 
-    def insert_from_temp_into_target(self, target_table: str, data: List[Tuple], delete_condition: Optional[str] = None) -> None:
+        return temp_table
+
+    def insert_from_temp_into_target(self, target_table: str, temp_table: str,
+                                     delete_condition: Optional[str] = None) -> None:
         """Deleting old data and adding new data
         :param target_table: target table name
-        :param data: data to write to the table
+        :param temp_table: temporary table name
         :param delete_condition: condition for deleting data
         """
-
-        temp_table = f'{target_table}_{int(time.time())}'
-        query_create = f"""CREATE TEMP TABLE {temp_table} AS TABLE {target_table} WITH NO DATA"""
-        try:
-            self.cursor.execute(query_create)
-            self.conn.commit()
-            self.logger.info(f'Temporary table {temp_table} completed successfully')
-        except:
-            self.logger.error('Error creating temporary table')
-            self.conn.rollback()
-
-        self.logger.info(f'Inserting values into a temporary table {temp_table}')
-        self.insert_data_into_table(temp_table, data)
 
         self.cursor.execute(f"SELECT * FROM {target_table} LIMIT 0")  # select columns name from target_table
         col_names = [col.name for col in self.cursor.description if col.name != 'id']  # identified columns without id
@@ -86,13 +90,16 @@ class PostgresLoader:
                 self.cursor.execute(query)
             self.conn.commit()
             self.logger.info(f'Inserting data from a temporary table {temp_table} into the targer table "{target_table}"')
-        except:
-            self.logger.error('Query Execution Error')
+        except psycopg2.errors.UndefinedTable:
+            self.logger.error(f'Query Execution Error {psycopg2.errors.UndefinedTable}')
             self.conn.rollback()
 
-        self.cursor.execute(f"DROP TABLE {temp_table};")
-        self.conn.commit()
-        self.logger.info(f'Table {temp_table} deleted')
+        try:
+            self.cursor.execute(f"DROP TABLE {temp_table};")
+            self.conn.commit()
+            self.logger.info(f'Table {temp_table} deleted')
+        except psycopg2.errors.UndefinedTable:
+            self.logger.error(f'Table {temp_table} no deleted. Error {psycopg2.errors.UndefinedTable}')
 
     def __del__(self):
         self.logger.info('Closing the connection')
@@ -111,7 +118,8 @@ if __name__ == '__main__':
     update_ts = datetime.now()
     with open(output_filepath) as f:
         data = list(csv.reader(f, delimiter=","))
-        data_from_csv = [(row[0], update_ts, args['source_upload_dt'], args['source_type'], row[1], row[2], row[3], row[4],
+        data_from_csv = [
+            (row[0], update_ts, args['source_upload_dt'], args['source_type'], row[1], row[2], row[3], row[4],
              row[5], row[6], row[7], args['specialization']) for row in data]  # creating list of data tuples from csv
 
     delete_condition = f"""
@@ -122,6 +130,9 @@ if __name__ == '__main__':
 
     pg_loader = PostgresLoader(conn=get_pg_connection(), logger=get_logger())
     pg_loader.insert_from_temp_into_target(target_table=args['target_table'],
-                                           data=data_from_csv,
+                                           temp_table=pg_loader.insert_data_into_table(args['target_table'],
+                                                                                       data_from_csv,
+                                                                                       args['target_table']),
                                            delete_condition=delete_condition)
+
     del pg_loader
