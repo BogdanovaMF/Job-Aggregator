@@ -31,7 +31,7 @@ class PostgresLoader:
         self.logger = logger if logger else get_logger()
 
     def insert_data_into_table(self, table_name: str, data: List[Tuple]) -> None:
-        """Creating and insert data into a table
+        """Insert data into a table
         :param table_name: tables name for insert values
         :param data: data to write to the table
         """
@@ -52,7 +52,7 @@ class PostgresLoader:
             self.conn.rollback()
 
     def insert_from_temp_into_target(self, target_table: str, data: List[Tuple], delete_condition: Optional[str] = None) -> None:
-        """Deleting data and adding new data
+        """Deleting old data and adding new data
         :param target_table: target table name
         :param data: data to write to the table
         :param delete_condition: condition for deleting data
