@@ -1,7 +1,6 @@
 import csv
 import time
 import argparse
-import psycopg2.errors
 from datetime import datetime
 from typing import Tuple, List, Optional
 
@@ -46,9 +45,10 @@ class PostgresLoader:
             self.cursor.execute(query_create)
             self.conn.commit()
             self.logger.info(f'Temporary table {temp_table} completed successfully')
-        except psycopg2.errors.UndefinedTable:
-            self.logger.error(f'Error creating temporary table {temp_table}.Error {psycopg2.errors.UndefinedTable}')
+        except Exception as ex:
+            self.logger.error(ex)
             self.conn.rollback()
+            raise ex
 
         self.cursor.execute(f"SELECT * FROM {table_name} LIMIT 0")  # select columns name from table
         col_names = [col.name for col in self.cursor.description if col.name != 'id']  # identified columns without id
@@ -61,9 +61,10 @@ class PostgresLoader:
             self.cursor.executemany(guery_insert_data, data)
             self.conn.commit()
             self.logger.info(f'Inserting values into a table {temp_table} completed successfully')
-        except psycopg2.errors.UndefinedTable:
-            self.logger.error(f'Error {psycopg2.errors.UndefinedTable}. No data entered into table {temp_table}')
+        except Exception as ex:
+            self.logger.error(ex)
             self.conn.rollback()
+            raise ex
 
         return temp_table
 
@@ -88,18 +89,14 @@ class PostgresLoader:
         try:
             for query in queries:
                 self.cursor.execute(query)
-            self.conn.commit()
             self.logger.info(f'Inserting data from a temporary table {temp_table} into the targer table "{target_table}"')
-        except psycopg2.errors.UndefinedTable:
-            self.logger.error(f'Query Execution Error {psycopg2.errors.UndefinedTable}')
-            self.conn.rollback()
-
-        try:
             self.cursor.execute(f"DROP TABLE {temp_table};")
-            self.conn.commit()
             self.logger.info(f'Table {temp_table} deleted')
-        except psycopg2.errors.UndefinedTable:
-            self.logger.error(f'Table {temp_table} no deleted. Error {psycopg2.errors.UndefinedTable}')
+            self.conn.commit()
+        except Exception as ex:
+            self.logger.error(ex)
+            self.conn.rollback()
+            raise ex
 
     def __del__(self):
         self.logger.info('Closing the connection')
