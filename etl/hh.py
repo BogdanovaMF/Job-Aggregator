@@ -2,17 +2,27 @@ import re
 import time
 import locale
 import requests
+import argparse
 from datetime import date
 from parsel import Selector
 from datetime import datetime
 from typing import List, Tuple
-from ..utils import get_logger, save_data
-from ..config import OUTPUT_FILEPATH_TEMPLATE
+from utils import get_logger, save_data
+
+OUTPUT_FILEPATH_TEMPLATE = 'data/{source_type}/{specialization}/{source_upload_dt}'
 
 headers = {'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
                          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'}
 
 logger = get_logger()
+
+def parse_args():
+    """Getting  data from the user from the command line for searching"""
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--specialization', required=True, choices=['data-engineer'])
+    args = parser.parse_args()
+    return vars(args)
 
 
 class HHClient:
@@ -136,3 +146,8 @@ class HHClient:
 
         logger.info(f'Receive information about the vacancy "{vacancy_name}", company "{company}"')
         return pub_date, vacancy_name, experience, company, link, salary, skill, text_vacancy
+
+
+if __name__ == '__main__':
+    args = parse_args()
+    HHClient.parse_and_save(args["specialization"])
