@@ -31,42 +31,38 @@ class PostgresLoader:
         self.logger = logger if logger else get_logger()
 
     def insert_data_into_table(self, table_name: str, data: List[Tuple],
-                               create_like_table: Optional[str] = None) -> str:
-        """Insert data into a table. Create temp table
+                               create_like_table: Optional[str] = None) -> None:
+        """Create temp table. Insert data into a table.
         :param table_name: tables name for insert values
         :param data: data to write to the table
         :param create_like_table: the name of the table whose structure is to be copied
-        :return: temp table name
         """
 
-        temp_table = f'{table_name}_{int(time.time())}'
-        query_create = f"""CREATE TEMP TABLE {temp_table} AS TABLE {create_like_table} WITH NO DATA"""
+        query_create = f"""CREATE TEMP TABLE {table_name} AS TABLE {create_like_table} WITH NO DATA"""
         try:
             self.cursor.execute(query_create)
             self.conn.commit()
-            self.logger.info(f'Temporary table {temp_table} completed successfully')
+            self.logger.info(f'Temporary table {table_name} completed successfully')
         except Exception as ex:
-            self.logger.error(ex)
+            self.logger.error(f'Some error occurred: {ex}')
             self.conn.rollback()
             raise ex
 
-        self.cursor.execute(f"SELECT * FROM {table_name} LIMIT 0")  # select columns name from table
+        self.cursor.execute(f"SELECT * FROM {create_like_table} LIMIT 0")  # select columns name from table
         col_names = [col.name for col in self.cursor.description if col.name != 'id']  # identified columns without id
         try:
             guery_insert_data = f"""
-                INSERT INTO {temp_table} 
+                INSERT INTO {table_name} 
                     ({', '.join(col_names)})
                 VALUES ({', '.join(['%s'] * len(col_names))});
             """
             self.cursor.executemany(guery_insert_data, data)
             self.conn.commit()
-            self.logger.info(f'Inserting values into a table {temp_table} completed successfully')
+            self.logger.info(f'Inserting values into a table {table_name} completed successfully')
         except Exception as ex:
-            self.logger.error(ex)
+            self.logger.error(f'Some error occurred: {ex}')
             self.conn.rollback()
             raise ex
-
-        return temp_table
 
     def insert_from_temp_into_target(self, target_table: str, temp_table: str,
                                      delete_condition: Optional[str] = None) -> None:
@@ -85,16 +81,15 @@ class PostgresLoader:
             queries.append(q_delete)
         q_insert = f"""INSERT INTO {target_table} ({', '.join(col_names)}) SELECT {', '.join(col_names)} FROM {temp_table};"""
         queries.append(q_insert)
+        queries.append(f"""DROP TABLE {temp_table};""")
 
         try:
             for query in queries:
                 self.cursor.execute(query)
             self.logger.info(f'Inserting data from a temporary table {temp_table} into the targer table "{target_table}"')
-            self.cursor.execute(f"DROP TABLE {temp_table};")
-            self.logger.info(f'Table {temp_table} deleted')
             self.conn.commit()
         except Exception as ex:
-            self.logger.error(ex)
+            self.logger.error(f'Some error occurred: {ex}')
             self.conn.rollback()
             raise ex
 
@@ -105,6 +100,8 @@ class PostgresLoader:
 
 if __name__ == '__main__':
     args = parse_args()
+    target_table = args['target_table']
+    temp_table = f'{target_table}_{int(time.time())}'
 
     filepath = OUTPUT_FILEPATH_TEMPLATE.format(
         source_type=args['source_type'],
@@ -126,10 +123,10 @@ if __name__ == '__main__':
     """
 
     pg_loader = PostgresLoader(conn=get_pg_connection(), logger=get_logger())
-    pg_loader.insert_from_temp_into_target(target_table=args['target_table'],
-                                           temp_table=pg_loader.insert_data_into_table(args['target_table'],
-                                                                                       data_from_csv,
-                                                                                       args['target_table']),
+    pg_loader.insert_data_into_table(table_name=temp_table,
+                                     data=data_from_csv,
+                                     create_like_table=target_table)
+    pg_loader.insert_from_temp_into_target(target_table=target_table,
+                                           temp_table=temp_table,
                                            delete_condition=delete_condition)
-
     del pg_loader
