@@ -23,6 +23,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--date', nargs='?')
     parser.add_argument('--link_channel', required=True)
+    parser.add_argument('--specialization', required=True, choices=['data_engineer'])
     args = parser.parse_args()
     return vars(args)
 
@@ -102,7 +103,7 @@ if __name__ == '__main__':
     Telegram_Client.save_data(messages=all_messages,
                               output_filepath=OUTPUT_FILEPATH_TEMPLATE.format(
                                                   source_type=source_type,
-                                                  specialization='data_engineer',
+                                                  specialization=args['specialization'],
                                                   source_upload_dt=date.today()
                                                   )
                               )
