@@ -2,9 +2,10 @@ import os
 import csv
 import sys
 import logging
+from typing import List, Tuple
+
 import psycopg2
 from pathlib import Path
-from typing import List, Tuple
 from dotenv import load_dotenv
 
 load_dotenv()

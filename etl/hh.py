@@ -1,15 +1,15 @@
 import re
 import time
 import locale
-import requests
 import argparse
-from datetime import date
-from parsel import Selector
-from datetime import datetime
 from typing import List, Tuple
-from utils import get_logger, save_data
+from datetime import date, datetime
 
-OUTPUT_FILEPATH_TEMPLATE = 'data/{source_type}/{specialization}/{source_upload_dt}'
+import requests
+from parsel import Selector
+
+from utils import get_logger, save_data
+from config import OUTPUT_FILEPATH_TEMPLATE
 
 headers = {'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
                          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'}

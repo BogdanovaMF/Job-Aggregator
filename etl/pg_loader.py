@@ -6,8 +6,7 @@ from typing import Tuple, List, Optional
 
 from utils import get_logger
 from utils import get_pg_connection
-
-OUTPUT_FILEPATH_TEMPLATE = 'data/{source_type}/{specialization}/{source_upload_dt}'
+from config import OUTPUT_FILEPATH_TEMPLATE
 
 
 def parse_args():
