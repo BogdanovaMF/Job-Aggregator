@@ -93,6 +93,7 @@ class Telegram_Client:
 
     def __del__(self):
         logger.info('Closing the connection')
+        self.client.disconnect()
 
 
 if __name__ == '__main__':
