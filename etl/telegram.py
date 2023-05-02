@@ -22,7 +22,7 @@ def parse_args():
     return vars(args)
 
 
-class ClientTelegram:
+class TgClient:
     """Class for searching for vacancies on Telegram"""
 
     def __init__(self, client_id: Optional[str] = None, client_hash: Optional[str] = None,
@@ -95,13 +95,11 @@ if __name__ == '__main__':
     load_dotenv()
     logger = get_logger()
     args = parse_args()
-    tg_parser = ClientTelegram()
+    tg_parser = TgClient()
     all_messages = tg_parser.message_collection(link_channel=args['link_channel'],
                                                 date_search=args['date'])
-    tg_parser.save_data(messages=all_messages,
-                        output_filepath=OUTPUT_FILEPATH_TEMPLATE.format(source_type=tg_parser.source_type,
-                                                                        specialization=args['specialization'],
-                                                                        source_upload_dt=date.today()
-                                                                        )
-                        )
+    filepath = OUTPUT_FILEPATH_TEMPLATE.format(source_type=tg_parser.source_type,
+                                               specialization=args['specialization'],
+                                               source_upload_dt=date.today())
+    tg_parser.save_data(messages=all_messages, output_filepath=filepath)
     del tg_parser
