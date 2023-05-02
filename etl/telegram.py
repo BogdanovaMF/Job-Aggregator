@@ -13,7 +13,7 @@ from config import OUTPUT_FILEPATH_TEMPLATE
 
 
 def parse_args():
-    """Getting  data from the user from the command line for loader PG"""
+    """Getting  data from the user from the command line to connect to telegram"""
     parser = argparse.ArgumentParser()
     parser.add_argument('--date', nargs='?')
     parser.add_argument('--link_channel', required=True)
@@ -100,8 +100,7 @@ if __name__ == '__main__':
                                                 date_search=args['date'])
     tg_parser.save_data(messages=all_messages,
                         output_filepath=OUTPUT_FILEPATH_TEMPLATE.format(source_type=tg_parser.source_type,
-                                                                        specialization=args[
-                                                                            'specialization'],
+                                                                        specialization=args['specialization'],
                                                                         source_upload_dt=date.today()
                                                                         )
                         )
