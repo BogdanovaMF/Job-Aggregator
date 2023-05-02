@@ -11,13 +11,6 @@ from telethon.sync import TelegramClient
 from utils import get_logger
 from config import OUTPUT_FILEPATH_TEMPLATE
 
-load_dotenv()
-
-api_id = os.getenv('api_id')
-api_hash = os.getenv('api_hash')
-phone = os.getenv('phone')
-source_type = 'telegram'
-
 
 def parse_args():
     """Getting  data from the user from the command line for loader PG"""
@@ -29,22 +22,24 @@ def parse_args():
     return vars(args)
 
 
-class Telegram_Client:
+class ClientTelegram:
     """Class for searching for vacancies on Telegram"""
 
-    def __init__(self, t_id: int, t_hash: str, number_phone: str) -> None:
+    def __init__(self, client_id: Optional[str] = None, client_hash: Optional[str] = None,
+                 client_number_phone: Optional[str] = None) -> None:
         """Class initialization
-        :param t_id: telegram client's id
-        :param t_hash: telegram client's hash
-        :param number_phone: telegram client's number
+        :param client_id: telegram client's id
+        :param client_hash: telegram client's hash
+        :param client_number_phone: telegram client's number
         """
 
-        self.t_id = t_id
-        self.t_hash = t_hash
-        self.number_phone = number_phone
+        self.client_id = client_id if client_id else int(os.getenv('api_id'))
+        self.client_hash = client_hash if client_hash else os.getenv('api_hash')
+        self.client_number_phone = client_number_phone if client_number_phone else os.getenv('phone')
+        self.source_type = 'telegram'
 
         try:
-            self.client = TelegramClient(self.number_phone, self.t_id, self.t_hash)
+            self.client = TelegramClient(self.client_number_phone, self.client_id, self.client_hash)
             logger.info('Connection established')
         except Exception as ex:
             logger.error(f'Error "{ex}"')
@@ -97,14 +92,16 @@ class Telegram_Client:
 
 
 if __name__ == '__main__':
+    load_dotenv()
     logger = get_logger()
     args = parse_args()
-    tg_parser = Telegram_Client(t_id=int(api_id), t_hash=api_hash, number_phone=phone)
+    tg_parser = ClientTelegram()
     all_messages = tg_parser.message_collection(link_channel=args['link_channel'],
                                                 date_search=args['date'])
     tg_parser.save_data(messages=all_messages,
-                        output_filepath=OUTPUT_FILEPATH_TEMPLATE.format(source_type=source_type,
-                                                                        specialization=args['specialization'],
+                        output_filepath=OUTPUT_FILEPATH_TEMPLATE.format(source_type=tg_parser.source_type,
+                                                                        specialization=args[
+                                                                            'specialization'],
                                                                         source_upload_dt=date.today()
                                                                         )
                         )
