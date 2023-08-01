@@ -2,6 +2,7 @@ import re
 import time
 import locale
 import argparse
+import random
 from typing import List, Tuple
 from datetime import date, datetime
 
@@ -12,7 +13,14 @@ from utils import get_logger, save_data
 from config import OUTPUT_FILEPATH_TEMPLATE
 
 headers = {'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
-                         'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'}
+                         'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36',
+           'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+           'accept-Encoding': 'gzip, deflate, br',
+           'Accept-Language': 'ru,ru-RU;q=0.9,en-US;q=0.8,en;q=0.7',
+           'cache-Control': 'max-age=0'
+           }
+
+cookies = {'': ''}
 
 logger = get_logger()
 
@@ -57,7 +65,8 @@ class HHClient:
         for i in range(total_pages):
             links += cls._get_links(cls.url.format(specialization=specialization, num_page=f'page={i}'))
             logger.info(f'Page №{i + 1}/{total_pages}: {specialization.replace("-", " ")}')
-            time.sleep(0.7)
+            # time.sleep(1.5)
+            time.sleep(random.randrange(1, 2))
         logger.info(f'{len(links)} links found')
 
         # job listing
@@ -66,10 +75,10 @@ class HHClient:
             for i, link in enumerate(links):
                 logger.info(f'Processed vacancy №{i + 1}')
                 data.append(cls._get_vacancy_data(link))
-                time.sleep(0.7)
+                time.sleep(random.randrange(1, 2))
 
         except ConnectionError:
-            time.sleep(10)
+            time.sleep(30)
 
         save_data(
             data=data,
