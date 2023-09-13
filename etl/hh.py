@@ -2,12 +2,12 @@ import re
 import time
 import locale
 import argparse
-import random
 from typing import List, Tuple
 from datetime import date, datetime
 
 import requests
 from parsel import Selector
+from concurrent.futures import ThreadPoolExecutor
 
 from utils import get_logger, save_data
 from config import OUTPUT_FILEPATH_TEMPLATE
@@ -20,9 +20,9 @@ headers = {'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
            'cache-Control': 'max-age=0'
            }
 
-cookies = {'': ''}
 
 logger = get_logger()
+
 
 def parse_args():
     """Getting  data from the user from the command line for searching"""
@@ -62,23 +62,24 @@ class HHClient:
 
         # list links for all vacancies from all pages
         links = []
-        for i in range(total_pages):
-            links += cls._get_links(cls.url.format(specialization=specialization, num_page=f'page={i}'))
-            logger.info(f'Page №{i + 1}/{total_pages}: {specialization.replace("-", " ")}')
-            # time.sleep(1.5)
-            time.sleep(random.randrange(1, 2))
-        logger.info(f'{len(links)} links found')
+        with ThreadPoolExecutor() as executor:
+            for i in range(total_pages):
+                links_page = executor.submit(cls._get_links, cls.url.format(specialization=specialization, num_page=f'page={i}'))
+                links.extend(links_page.result())
+                logger.info(f'Page №{i + 1}/{total_pages}: {specialization.replace("-", " ")}')
+            logger.info(f'{len(links)} links found')
 
         # job listing
         data = []
-        try:
-            for i, link in enumerate(links):
-                logger.info(f'Processed vacancy №{i + 1}')
-                data.append(cls._get_vacancy_data(link))
-                time.sleep(random.randrange(1, 2))
-
-        except ConnectionError:
-            time.sleep(30)
+        with ThreadPoolExecutor() as executor:
+            # executor.map(cls._get_vacancy_data, links)
+            try:
+                for i, link in enumerate(links):
+                    logger.info(f'Processed vacancy №{i + 1}')
+                    vacancy_data = executor.submit(cls._get_vacancy_data, link)
+                    data.append(vacancy_data.result())
+            except ConnectionError:
+                time.sleep(30)
 
         save_data(
             data=data,
