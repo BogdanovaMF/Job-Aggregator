@@ -102,7 +102,7 @@ class HHClient:
         links_sel = Selector(job_content).xpath("//div[contains(@class, 'HH-MainContent HH-Supernova-MainContent')]")
         if links_sel:
             for l_sell in links_sel:
-                links_page = l_sell.xpath("//a[contains(@class,'serp-item__title')]/@href").getall()
+                links_page = l_sell.xpath("//span[contains(@class,'serp-item__title-link-wrapper')]/a[contains(@class, 'bloko-link')]/@href").getall()
                 return links_page
         else:
             raise IndexError(f'Failed to parse links to vacancies by url={url}')
