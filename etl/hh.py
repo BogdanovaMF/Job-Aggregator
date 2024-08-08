@@ -3,6 +3,7 @@ import time
 import locale
 import argparse
 import random
+import multiprocessing
 from typing import List, Tuple
 from datetime import date, datetime
 
@@ -13,7 +14,7 @@ from utils import get_logger, save_data
 from config import OUTPUT_FILEPATH_TEMPLATE
 
 headers = {'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
-                         'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36',
+                         'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36' ,
            'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
            'accept-Encoding': 'gzip, deflate, br',
            'Accept-Language': 'ru,ru-RU;q=0.9,en-US;q=0.8,en;q=0.7',
@@ -72,10 +73,9 @@ class HHClient:
         # job listing
         data = []
         try:
-            for i, link in enumerate(links):
-                logger.info(f'Processed vacancy №{i + 1}')
-                data.append(cls._get_vacancy_data(link))
-                time.sleep(random.randrange(1, 2))
+            with multiprocessing.Pool() as pool:
+                data = pool.map(cls._get_vacancy_data, links)
+
 
         except ConnectionError:
             time.sleep(30)
@@ -113,19 +113,18 @@ class HHClient:
         :param link: job posting link
         :return: job data tuple
         """
-
+        time.sleep(random.randrange(1, 7))
         response = requests.get(link, headers=headers)
         html_sel = Selector(response.content.decode('utf-8')).xpath('/html')[0]
 
         text_vacancy = html_sel.xpath("//div[contains(@data-qa, 'vacancy-description')]//text()").getall()
         text_vacancy = ' '.join([i.strip() for i in text_vacancy if i.strip()])
-
         vacancy_name = str(html_sel.xpath("//h1[contains(@data-qa,'vacancy-title')]/text()").get())
 
         company = html_sel.xpath("//a[contains(@data-qa,'vacancy-company-name')]//text()").getall()
         company = ' '.join(company)
         company = re.sub(r'[^\d,^\w.]', ' ', company)[0:(len(company) // 2 + 1)]
-
+        time.sleep(random.randrange(1, 2))
         skill = html_sel.xpath("//div[contains(@class, 'bloko-tag-list')]//text()").getall()
         skill = ','.join([i for i in skill])
 
